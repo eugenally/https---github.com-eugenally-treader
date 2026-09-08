@@ -1,0 +1,71 @@
+services:
+  # Oracle Database 21c Express Edition
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: treader-oracle
+    restart: unless-stopped
+    ports:
+      # 호스트의 1521 포트 충돌 방지를 위해 1523 포트로 매핑
+      - "${ORACLE_PORT:-1523}:1521"
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-1234}
+      APP_USER: ${ORACLE_APP_USER:-boot_user}
+      APP_USER_PASSWORD: ${ORACLE_APP_USER_PASSWORD:-1234}
+      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ./docker/oracle-init:/container-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    networks:
+      - treader-network
+
+  # MailHog - 로컬 개발용 가상 SMTP 서버 및 웹 UI
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: treader-mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP 포트
+      - "${MAILHOG_UI_PORT:-8025}:8025"   # Web UI 포트
+    networks:
+      - treader-network
+
+  # Treader Spring Boot 애플리케이션 (선택 실행: docker compose --profile app up)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: treader-app
+    restart: unless-stopped
+    profiles:
+      - app
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      SPRING_DATASOURCE_USERNAME: ${ORACLE_APP_USER:-boot_user}
+      SPRING_DATASOURCE_PASSWORD: ${ORACLE_APP_USER_PASSWORD:-1234}
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      oracle:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - treader-network
+
+volumes:
+  oracle_data:
+    driver: local
+
+networks:
+  treader-network:
+    driver: bridge
