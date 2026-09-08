@@ -29,9 +29,10 @@ import {
 import SaveIcon from '@mui/icons-material/Save';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { orderApi, shipmentApi, toMessage } from '../api/client';
+import { documentApi, orderApi, shipmentApi, toMessage } from '../api/client';
 
 const statusColors = {
   PLANNED: 'default',
@@ -410,9 +411,22 @@ export default function ShipmentPage() {
                           </Button>
                         </Stack>
                       ) : (
-                        <Typography variant="caption" color="textSecondary">
-                          {s.invoiced ? 'CI 발행됨' : '확정됨'}
-                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+                          <Typography variant="caption" color="textSecondary">
+                            {s.invoiced ? 'CI 발행됨' : '확정됨'}
+                          </Typography>
+                          <Button
+                            size="small"
+                            startIcon={<DownloadIcon />}
+                            onClick={() =>
+                              documentApi
+                                .packingListPdf(s.id, s.shipmentNo)
+                                .catch((e) => notify(toMessage(e), 'error'))
+                            }
+                          >
+                            PL
+                          </Button>
+                        </Stack>
                       )}
                     </TableCell>
                   </TableRow>

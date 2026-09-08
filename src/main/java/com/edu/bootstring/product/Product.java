@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -51,6 +52,9 @@ public class Product extends BaseTimeEntity {
     @Column(name = "MOQ", precision = 15, scale = 3)
     private BigDecimal moq;
 
+    @Column(name = "PACKAGE_TYPE", length = 50)
+    private String packageType;
+
     @Column(name = "QTY_PER_CTN")
     private Integer qtyPerCarton;
 
@@ -65,4 +69,52 @@ public class Product extends BaseTimeEntity {
 
     @Column(name = "STATUS", nullable = false, length = 20)
     private String status;
+
+    @Builder
+    private Product(String productCode, String nameEn, String nameKo, String spec, String hsCode,
+                    String unit, BigDecimal moq, String packageType, Integer qtyPerCarton,
+                    BigDecimal netWeight, BigDecimal grossWeight, BigDecimal cbm) {
+        this.productCode = productCode;
+        this.nameEn = nameEn;
+        this.nameKo = nameKo;
+        this.spec = spec;
+        this.hsCode = hsCode;
+        this.unit = unit != null ? unit : "EA";
+        this.moq = moq;
+        this.packageType = packageType;
+        this.qtyPerCarton = qtyPerCarton;
+        this.netWeight = netWeight;
+        this.grossWeight = grossWeight;
+        this.cbm = cbm;
+        this.status = "ACTIVE";
+    }
+
+    /** {@code productCode} 는 바꾸지 않는다. 과거 문서·엑셀 양식이 이 코드로 제품을 가리킨다. */
+    public void update(String nameEn, String nameKo, String spec, String hsCode, String unit,
+                       BigDecimal moq, String packageType, Integer qtyPerCarton,
+                       BigDecimal netWeight, BigDecimal grossWeight, BigDecimal cbm) {
+        this.nameEn = nameEn;
+        this.nameKo = nameKo;
+        this.spec = spec;
+        this.hsCode = hsCode;
+        this.unit = unit;
+        this.moq = moq;
+        this.packageType = packageType;
+        this.qtyPerCarton = qtyPerCarton;
+        this.netWeight = netWeight;
+        this.grossWeight = grossWeight;
+        this.cbm = cbm;
+    }
+
+    public void deactivate() {
+        this.status = "INACTIVE";
+    }
+
+    public void activate() {
+        this.status = "ACTIVE";
+    }
+
+    public boolean isActive() {
+        return "ACTIVE".equals(status);
+    }
 }

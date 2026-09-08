@@ -53,9 +53,41 @@ public class Inventory {
     @Column(name = "UPDATED_AT")
     private LocalDateTime updatedAt;
 
+    /** 제품 등록 시 재고 행을 함께 만든다. 재고 행이 없으면 출하에서 터진다. */
+    public Inventory(Long productId, BigDecimal initialQty) {
+        this.productId = productId;
+        this.onHandQty = initialQty != null ? initialQty : BigDecimal.ZERO;
+        this.allocatedQty = BigDecimal.ZERO;
+        this.safetyQty = BigDecimal.ZERO;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     /** 가용 재고. D5-05 로 음수가 될 수 있고, 음수는 곧 백오더 수량이다. */
     public BigDecimal getAvailableQty() {
         return onHandQty.subtract(allocatedQty);
+    }
+
+    /**
+     * 실사 조정. 차이를 더하는 게 아니라 <b>센 값으로 덮는다.</b>
+     * 차이를 입력받으면 부호를 헷갈려 반대로 넣는 사고가 난다.
+     *
+     * @return 조정 전 수량 (이력에 남길 값)
+     */
+    public BigDecimal adjustTo(BigDecimal countedQty) {
+        BigDecimal before = this.onHandQty;
+        this.onHandQty = countedQty;
+        this.updatedAt = LocalDateTime.now();
+        return before;
+    }
+
+    public void changeSafetyQty(BigDecimal safetyQty) {
+        this.safetyQty = safetyQty;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /** 가용 재고가 안전재고 아래로 내려갔는가 */
+    public boolean isBelowSafety() {
+        return getAvailableQty().compareTo(safetyQty) < 0;
     }
 
     /** 수주 확정 시 할당 */

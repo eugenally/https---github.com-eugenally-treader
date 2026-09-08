@@ -18,6 +18,10 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C004", "서버 내부 오류가 발생했습니다."),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, "C005", "잘못된 파라미터 타입입니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "C006", "접근 권한이 없습니다."),
+    MALFORMED_REQUEST_BODY(HttpStatus.BAD_REQUEST, "C007", "요청 본문을 해석할 수 없습니다."),
+    MISSING_PARAMETER(HttpStatus.BAD_REQUEST, "C008", "필수 항목이 누락되었습니다."),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "C009", "지원하지 않는 Content-Type 입니다."),
+    PAYLOAD_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "C010", "업로드 용량 제한을 초과했습니다."),
 
     // Auth & Member (A / M)
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "A001", "인증이 필요합니다."),

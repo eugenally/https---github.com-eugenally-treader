@@ -21,9 +21,11 @@ import {
 } from '@mui/material';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { orderApi, toMessage } from '../api/client';
+import AttachmentPanel from '../components/AttachmentPanel';
+import { documentApi, orderApi, toMessage } from '../api/client';
 
 const statusColors = {
   CONFIRMED: 'info',
@@ -269,6 +271,7 @@ export default function SalesOrderPage() {
                         <TableCell>선적일</TableCell>
                         <TableCell>B/L No.</TableCell>
                         <TableCell align="right">총중량(kg)</TableCell>
+                        <TableCell align="center" width={80}>문서</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -283,6 +286,21 @@ export default function SalesOrderPage() {
                           <TableCell>{s.shipDate || '-'}</TableCell>
                           <TableCell>{s.blNo || '-'}</TableCell>
                           <TableCell align="right">{money(s.totalGrossWeight, 1)}</TableCell>
+                          <TableCell align="center">
+                            {s.status === 'SHIPPED' && (
+                              <Button
+                                size="small"
+                                startIcon={<DownloadIcon />}
+                                onClick={() =>
+                                  documentApi
+                                    .packingListPdf(s.shipmentId, s.shipmentNo)
+                                    .catch((e) => notify(toMessage(e), 'error'))
+                                }
+                              >
+                                PL
+                              </Button>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -290,6 +308,15 @@ export default function SalesOrderPage() {
                 </TableContainer>
               )}
             </Card>
+
+            <Box sx={{ marginTop: 2 }}>
+              <AttachmentPanel
+                refType="SALES_ORDER"
+                refId={detail.id}
+                notify={notify}
+                title="수주 첨부파일"
+              />
+            </Box>
 
             <Stack direction="row" spacing={2} sx={{ marginTop: 3, justifyContent: 'flex-end' }}>
               <Button

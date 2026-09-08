@@ -28,6 +28,8 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
 	// 인보이스 PDF — HTML 템플릿을 PDF 로 렌더한다. 출력물은 D8-01 대로 영문이라 한글 폰트가 필요 없다.
 	implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
+	// Excel 대량등록·내보내기 (M5). xlsx 를 다루려면 ooxml 이 필요하다.
+	implementation 'org.apache.poi:poi-ooxml:5.3.0'
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'

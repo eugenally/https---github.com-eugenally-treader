@@ -20,6 +20,14 @@ import java.util.List;
 public class ShipmentController {
 
     private final ShipmentService shipmentService;
+    private final PackingListPdfService packingListPdfService;
+
+    /** Packing List PDF — 인보이스가 돈을 말한다면 PL 은 물건을 말한다 (금액 없음) */
+    @GetMapping("/{id}/packing-list")
+    public ResponseEntity<byte[]> packingList(@PathVariable Long id) {
+        return com.edu.bootstring.global.document.FileResponses.pdf(
+                packingListPdfService.render(id), packingListPdfService.fileName(id));
+    }
 
     @GetMapping
     public List<ShipmentDtos.SummaryResponse> findAll() {

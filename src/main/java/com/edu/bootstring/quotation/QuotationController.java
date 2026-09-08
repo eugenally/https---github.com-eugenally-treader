@@ -23,6 +23,14 @@ public class QuotationController {
 
     private final QuotationService quotationService;
     private final SalesOrderService salesOrderService;
+    private final QuotationPdfService quotationPdfService;
+
+    /** 견적서 PDF 다운로드 */
+    @GetMapping("/{id}/pdf")
+    public org.springframework.http.ResponseEntity<byte[]> downloadPdf(@PathVariable Long id) {
+        return com.edu.bootstring.global.document.FileResponses.pdf(
+                quotationPdfService.render(id), quotationPdfService.fileName(id));
+    }
 
     @GetMapping
     public List<QuotationDtos.SummaryResponse> findAll() {

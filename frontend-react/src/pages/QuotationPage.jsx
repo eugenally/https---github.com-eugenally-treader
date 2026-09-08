@@ -33,9 +33,18 @@ import SendIcon from '@mui/icons-material/Send';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { customerApi, invoiceApi, productApi, quotationApi, toMessage } from '../api/client';
+import AttachmentPanel from '../components/AttachmentPanel';
+import {
+  customerApi,
+  documentApi,
+  invoiceApi,
+  productApi,
+  quotationApi,
+  toMessage,
+} from '../api/client';
 
 const statusColors = {
   DRAFT: 'default',
@@ -285,6 +294,17 @@ export default function QuotationPage() {
                     발송
                   </Button>
                 )}
+                <Button
+                  size="small"
+                  startIcon={<DownloadIcon />}
+                  onClick={() =>
+                    documentApi
+                      .quotationPdf(detail.id, detail.quoteNo)
+                      .catch((e) => notify(toMessage(e), 'error'))
+                  }
+                >
+                  견적서 PDF
+                </Button>
                 {detail.piIssuable && (
                   <Button
                     size="small"
@@ -422,6 +442,17 @@ export default function QuotationPage() {
               </Button>
             )}
           </Card>
+        )}
+
+        {detail && (
+          <Box sx={{ marginTop: 2 }}>
+            <AttachmentPanel
+              refType="QUOTATION"
+              refId={detail.id}
+              notify={notify}
+              title="견적 첨부파일"
+            />
+          </Box>
         )}
 
         {/* 새 견적 */}

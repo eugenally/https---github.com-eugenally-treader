@@ -585,7 +585,8 @@ VALUES (SEQ_BOARD.NEXTVAL, 'QNA', '거래처 Q&A', 'MEMBER', 'MEMBER', 'N', 'Y',
 INSERT INTO BOARD (BOARD_ID, BOARD_CODE, BOARD_NAME, AUTH_READ, AUTH_WRITE, FILE_YN, COMMENT_YN, LIKE_YN, PAGE_SIZE, SORT_ORDER)
 VALUES (SEQ_BOARD.NEXTVAL, 'ARCHIVE', '자료실', 'MEMBER', 'MEMBER', 'Y', 'Y', 'Y', 10, 3);
 
--- 관리자 계정 (초기 비밀번호: 1234 -> BCrypt)
+-- 관리자 계정 (초기 비밀번호: password -> BCrypt)
+-- 주의: 이 해시는 '1234' 가 아니라 'password' 의 BCrypt 값이다. 로그인해 확인했다.
 INSERT INTO MEMBER (MEMBER_ID, LOGIN_ID, PASSWORD, NAME, EMAIL, PHONE, ROLE, EMAIL_VERIFIED_YN, STATUS)
 VALUES (SEQ_MEMBER.NEXTVAL, 'admin', '$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG', '관리자', 'admin@example.com', '010-0000-0000', 'ADMIN', 'Y', 'ACTIVE');
 

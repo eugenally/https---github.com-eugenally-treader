@@ -4,12 +4,17 @@ import com.edu.bootstring.global.error.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * 전역 예외 처리 핸들러
@@ -46,6 +51,53 @@ public class GlobalExceptionHandler {
         log.error("handleHttpRequestMethodNotSupportedException", e);
         ErrorResponse response = ErrorResponse.of(ErrorCode.METHOD_NOT_ALLOWED);
         return new ResponseEntity<>(response, HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    /**
+     * 본문을 읽을 수 없을 때 — 깨진 JSON, 타입이 맞지 않는 값 등.
+     * 이건 클라이언트 잘못이므로 500 이 아니라 400 으로 내려야 한다.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    protected ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException e) {
+        log.warn("handleHttpMessageNotReadable: {}", e.getMessage());
+        return new ResponseEntity<>(ErrorResponse.of(ErrorCode.MALFORMED_REQUEST_BODY),
+                HttpStatus.BAD_REQUEST);
+    }
+
+    /** 필수 쿼리 파라미터 누락 */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    protected ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException e) {
+        log.warn("handleMissingParameter: {}", e.getMessage());
+        return new ResponseEntity<>(
+                ErrorResponse.of(ErrorCode.MISSING_PARAMETER,
+                        "필수 항목이 누락되었습니다: " + e.getParameterName()),
+                HttpStatus.BAD_REQUEST);
+    }
+
+    /** multipart 요청에서 파일 파트가 빠졌을 때 */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    protected ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException e) {
+        log.warn("handleMissingPart: {}", e.getMessage());
+        return new ResponseEntity<>(
+                ErrorResponse.of(ErrorCode.MISSING_PARAMETER,
+                        "첨부할 파일이 없습니다: " + e.getRequestPartName()),
+                HttpStatus.BAD_REQUEST);
+    }
+
+    /** Content-Type 불일치 — 예: multipart 엔드포인트에 JSON 을 보낸 경우 */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    protected ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException e) {
+        log.warn("handleMediaTypeNotSupported: {}", e.getMessage());
+        return new ResponseEntity<>(ErrorResponse.of(ErrorCode.UNSUPPORTED_MEDIA_TYPE),
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    /** 업로드 용량 초과 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    protected ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("handleMaxUploadSize: {}", e.getMessage());
+        return new ResponseEntity<>(ErrorResponse.of(ErrorCode.PAYLOAD_TOO_LARGE),
+                HttpStatus.PAYLOAD_TOO_LARGE);
     }
 
     /**

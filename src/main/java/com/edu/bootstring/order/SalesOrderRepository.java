@@ -17,6 +17,11 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
     boolean existsByQuotationId(Long quotationId);
 
+    long countByCustomerId(Long customerId);
+
+    @Query("select o.customerId, count(o) from SalesOrder o group by o.customerId")
+    List<Object[]> countGroupedByCustomer();
+
     /**
      * 출하 확정 전에 수주 행을 잠근다.
      *
