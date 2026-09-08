@@ -32,9 +32,10 @@ import AddIcon from '@mui/icons-material/Add';
 import SendIcon from '@mui/icons-material/Send';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { customerApi, productApi, quotationApi, toMessage } from '../api/client';
+import { customerApi, invoiceApi, productApi, quotationApi, toMessage } from '../api/client';
 
 const statusColors = {
   DRAFT: 'default',
@@ -68,6 +69,9 @@ export default function QuotationPage() {
   const [itemOpen, setItemOpen] = useState(false);
   const [itemForm, setItemForm] = useState({ productId: '', qty: '', unitPrice: '' });
   const [suggestion, setSuggestion] = useState(null);
+
+  const [piOpen, setPiOpen] = useState(false);
+  const [piSaving, setPiSaving] = useState(false);
 
   const notify = (message, severity = 'success') => setToast({ message, severity });
 
@@ -172,6 +176,21 @@ export default function QuotationPage() {
     }
   };
 
+  /** 견적 단계 선금 PI 발행. 금액은 서버가 견적 총액 × 거래처 선금 비율로 계산한다. */
+  const handleIssuePi = async () => {
+    setPiSaving(true);
+    try {
+      const pi = await invoiceApi.issuePi({ quotationId: detail.id });
+      setPiOpen(false);
+      setDetail(await quotationApi.get(detail.id));
+      notify(`선금 PI ${pi.invoiceNo} 을(를) 발행했습니다. 청구액 ${pi.currency} ${money(pi.amount)}`);
+    } catch (e) {
+      notify(toMessage(e), 'error');
+    } finally {
+      setPiSaving(false);
+    }
+  };
+
   const handleConvert = async () => {
     try {
       const order = await quotationApi.convert(detail.id, {});
@@ -266,6 +285,16 @@ export default function QuotationPage() {
                     발송
                   </Button>
                 )}
+                {detail.piIssuable && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<ReceiptLongIcon />}
+                    onClick={() => setPiOpen(true)}
+                  >
+                    PI 발행
+                  </Button>
+                )}
                 {detail.status === 'SENT' && !detail.converted && (
                   <Button
                     size="small"
@@ -284,6 +313,15 @@ export default function QuotationPage() {
                 이 견적은 이미 수주로 전환되었습니다.{' '}
                 <Button size="small" onClick={() => navigate(`/sales-order?orderId=${detail.convertedOrderId}`)}>
                   수주 보기
+                </Button>
+              </Alert>
+            )}
+
+            {detail.piInvoiceNo && (
+              <Alert severity="info" sx={{ marginBottom: 2 }}>
+                선금 PI <strong>{detail.piInvoiceNo}</strong> 이(가) 발행되어 있습니다.{' '}
+                <Button size="small" onClick={() => navigate('/invoice')}>
+                  인보이스 보기
                 </Button>
               </Alert>
             )}
@@ -426,6 +464,62 @@ export default function QuotationPage() {
             <Button onClick={() => setCreateOpen(false)}>취소</Button>
             <Button variant="contained" disabled={!createForm.customerId} onClick={handleCreate}>
               생성
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* 선금 PI 발행 */}
+        <Dialog open={piOpen} onClose={() => setPiOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>선금 PI 발행</DialogTitle>
+          <DialogContent>
+            <Alert severity="info" sx={{ marginBottom: 2 }}>
+              바이어가 선금을 보내려면 수주 전에 PI 가 필요합니다. 수주 전환 전에도 발행할 수 있고,
+              이 PI 는 수주 취소를 막지 않습니다.
+            </Alert>
+            {detail && (
+              <Table size="small">
+                <TableBody>
+                  <TableRow>
+                    <TableCell>견적</TableCell>
+                    <TableCell align="right">{detail.quoteNo}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>거래처</TableCell>
+                    <TableCell align="right">{detail.customerName}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>견적 총액</TableCell>
+                    <TableCell align="right">
+                      {detail.currency} {money(detail.totalAmount)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>선금 비율</TableCell>
+                    <TableCell align="right">{money(detail.advanceRate, 0)}%</TableCell>
+                  </TableRow>
+                  <TableRow sx={{ backgroundColor: '#fffacd' }}>
+                    <TableCell>
+                      <strong>PI 청구액</strong>
+                    </TableCell>
+                    <TableCell align="right">
+                      <strong>
+                        {detail.currency}{' '}
+                        {money((Number(detail.totalAmount) * Number(detail.advanceRate)) / 100)}
+                      </strong>
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>결제기한</TableCell>
+                    <TableCell align="right">발행일 + 7일 (선적 전 입금)</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPiOpen(false)}>취소</Button>
+            <Button variant="contained" disabled={piSaving} onClick={handleIssuePi}>
+              발행
             </Button>
           </DialogActions>
         </Dialog>

@@ -6,6 +6,9 @@ import com.edu.bootstring.global.docnumber.DocNumberService;
 import com.edu.bootstring.global.error.ErrorCode;
 import com.edu.bootstring.global.error.exception.BusinessException;
 import com.edu.bootstring.global.error.exception.NotFoundException;
+import com.edu.bootstring.invoice.Invoice;
+import com.edu.bootstring.invoice.InvoiceRepository;
+import com.edu.bootstring.invoice.InvoiceStatus;
 import com.edu.bootstring.order.SalesOrderRepository;
 import com.edu.bootstring.product.PriceHistory;
 import com.edu.bootstring.product.PriceLookupService;
@@ -35,6 +38,7 @@ public class QuotationService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final InvoiceRepository invoiceRepository;
     private final PriceLookupService priceLookupService;
     private final DocNumberService docNumberService;
 
@@ -204,6 +208,19 @@ public class QuotationService {
                 .findFirst()
                 .orElse(null);
 
+        Invoice pi = invoiceRepository
+                .findFirstByQuotationIdAndInvoiceTypeAndStatusNot(q.getId(), "PI", InvoiceStatus.CANCELLED)
+                .orElse(null);
+        BigDecimal advanceRate = customers.containsKey(q.getCustomerId())
+                ? customers.get(q.getCustomerId()).getAdvanceRate()
+                : null;
+
+        // 발송된 견적 + 선금 비율 > 0 + 아직 PI 없음. 세 조건이 다 맞아야 발행할 수 있다.
+        boolean piIssuable = q.getStatus() != QuotationStatus.DRAFT
+                && advanceRate != null && advanceRate.signum() > 0
+                && pi == null
+                && !q.getItems().isEmpty();
+
         return new QuotationDtos.DetailResponse(
                 q.getId(),
                 q.getQuoteNo(),
@@ -224,6 +241,10 @@ public class QuotationService {
                 q.isEditable(),
                 convertedOrderId != null,
                 convertedOrderId,
+                advanceRate,
+                piIssuable,
+                pi != null ? pi.getId() : null,
+                pi != null ? pi.getInvoiceNo() : null,
                 items);
     }
 

@@ -86,6 +86,12 @@ public final class QuotationDtos {
             boolean editable,
             boolean converted,
             Long convertedOrderId,
+            /** 거래처 선금 비율(%). 0 이면 전액 후불이라 PI 를 낼 수 없다. */
+            BigDecimal advanceRate,
+            /** 선금 PI 를 낼 수 있는 상태인지 — 화면 버튼 노출 조건 */
+            boolean piIssuable,
+            Long piInvoiceId,
+            String piInvoiceNo,
             List<ItemResponse> items
     ) {
     }

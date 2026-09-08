@@ -14,6 +14,7 @@ import com.edu.bootstring.order.SalesOrderItem;
 import com.edu.bootstring.order.SalesOrderRepository;
 import com.edu.bootstring.quotation.Quotation;
 import com.edu.bootstring.quotation.QuotationRepository;
+import com.edu.bootstring.quotation.QuotationStatus;
 import com.edu.bootstring.shipment.Shipment;
 import com.edu.bootstring.shipment.ShipmentItem;
 import com.edu.bootstring.shipment.ShipmentRepository;
@@ -128,13 +129,38 @@ public class InvoiceService {
         if (quotation.getItems().isEmpty()) {
             throw new BusinessException("품목이 없는 견적에는 PI 를 발행할 수 없습니다.", ErrorCode.INVALID_INPUT_VALUE);
         }
+        // DRAFT 는 아직 바이어에게 나가지 않은 견적이다. 선금을 청구할 상대가 없다.
+        if (quotation.getStatus() == QuotationStatus.DRAFT) {
+            throw new BusinessException(
+                    "발송하지 않은 견적에는 PI 를 발행할 수 없습니다. 먼저 발송하세요.",
+                    ErrorCode.INVALID_STATE_TRANSITION);
+        }
+        invoiceRepository.findFirstByQuotationIdAndInvoiceTypeAndStatusNot(
+                        quotation.getId(), "PI", InvoiceStatus.CANCELLED)
+                .ifPresent(existing -> {
+                    throw new BusinessException(
+                            "이미 PI 가 발행된 견적입니다. (%s)".formatted(existing.getInvoiceNo()),
+                            ErrorCode.INVALID_INPUT_VALUE);
+                });
 
         BigDecimal advanceRate = customer.getAdvanceRate() != null
                 ? customer.getAdvanceRate()
                 : BigDecimal.valueOf(30);
+        // 선금 비율 0% 인 거래처(전액 후불)는 청구할 선금이 없다.
+        // 막지 않으면 금액 0 짜리 인보이스가 만들어진다.
+        if (advanceRate.signum() <= 0) {
+            throw new BusinessException(
+                    "%s 는 선금 비율이 0%% 라 PI 를 발행할 수 없습니다.".formatted(customer.getNameEn()),
+                    ErrorCode.INVALID_INPUT_VALUE);
+        }
+
         BigDecimal amount = quotation.getTotalAmount()
                 .multiply(advanceRate)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        if (amount.signum() <= 0) {
+            throw new BusinessException("PI 청구 금액이 0 입니다. 견적 금액을 확인하세요.",
+                    ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         LocalDate issueDate = req.issueDate() != null ? req.issueDate() : LocalDate.now();
         BigDecimal rate = findRate(quotation.getCurrency(), issueDate).orElse(quotation.getExchangeRate());
