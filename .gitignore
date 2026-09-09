@@ -36,6 +36,12 @@ out/
 ### VS Code ###
 .vscode/
 
+### Eclipse 워크스페이스 메타데이터 (브라우저 캐시·로그까지 들어간다) ###
+.metadata/
+
+### openvisio 인덱스 캐시 ###
+.openvisio/
+
 # JVM crash logs
 hs_err_pid*.log
 replay_pid*.log
