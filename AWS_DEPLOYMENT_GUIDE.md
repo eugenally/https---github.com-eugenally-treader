@@ -153,7 +153,7 @@ aws rds create-db-instance \
 3. 프로토콜: HTTP, 포트: 8080
 4. VPC: 기본 VPC
 5. **헬스 체크**:
-   - 경로: `/swagger-ui.html`
+   - 경로: `/api/health` (인증 불필요. Swagger 는 운영에서 끄므로 헬스체크로 쓰지 않는다)
    - 포트: 8080
    - 간격: 30초
    - 타임아웃: 5초
@@ -207,14 +207,14 @@ mysql -h <RDS_ENDPOINT> -u admin -p
 
 # MariaDB 프롬프트에서:
 CREATE DATABASE IF NOT EXISTS treader_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'boot_user'@'%' IDENTIFIED BY 'YOUR_PASSWORD';
-GRANT ALL PRIVILEGES ON treader_db.* TO 'boot_user'@'%';
+CREATE USER 'treader_user'@'%' IDENTIFIED BY 'YOUR_PASSWORD';
+GRANT ALL PRIVILEGES ON treader_db.* TO 'treader_user'@'%';
 FLUSH PRIVILEGES;
 EXIT;
 
 # DDL 및 샘플 데이터 로드
-mysql -h <RDS_ENDPOINT> -u boot_user -p treader_db < src/main/resources/db/oracle_ddl.sql
-mysql -h <RDS_ENDPOINT> -u boot_user -p treader_db < src/main/resources/db/sample-data.sql
+mysql -h <RDS_ENDPOINT> -u treader_user -p treader_db < src/main/resources/db/oracle_ddl.sql  # (MariaDB DDL. 파일명은 마이그레이션 이전 이름을 유지)
+mysql -h <RDS_ENDPOINT> -u treader_user -p treader_db < src/main/resources/db/sample-data.sql
 ```
 
 ### 2단계: AWS Secrets Manager에 자격증명 저장
@@ -298,10 +298,10 @@ aws s3 cp s3://treader-deploy-artifacts/treader.war .
 #### `/app/treader/env.conf` 작성
 ```bash
 export SPRING_DATASOURCE_URL=jdbc:mariadb://<RDS_ENDPOINT>:3306/treader_db?sslMode=trust
-export SPRING_DATASOURCE_USERNAME=boot_user
+export SPRING_DATASOURCE_USERNAME=treader_user
 export SPRING_DATASOURCE_PASSWORD=$(aws secretsmanager get-secret-value --secret-id treader/mariadb/password --query SecretString --output text)
 export SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.mariadb.jdbc.Driver
-export SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.MariaDB103Dialect
+export SPRING_JPA_DATABASE_PLATFORM=org.hibernate.dialect.MariaDBDialect
 export SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 export SPRING_JPA_SHOW_SQL=false
 
@@ -315,6 +315,11 @@ export SPRING_MAIL_PASSWORD=$(aws secretsmanager get-secret-value --secret-id tr
 export APP_MAIL_FROM=noreply@yourdomain.com
 
 export APP_UPLOAD_DIR=/app/uploads
+
+# API 문서는 운영에서 닫는다. 켜 두면 /v3/api-docs 로 전체 엔드포인트 구조가
+# 인증 없이 노출된다. ALB 헬스체크는 /api/health 를 쓰므로 영향이 없다.
+export SPRINGDOC_API_DOCS_ENABLED=false
+export SPRINGDOC_SWAGGER_UI_ENABLED=false
 ```
 
 ### 4단계: systemd 서비스 설정
@@ -388,10 +393,10 @@ aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "
 
 ```bash
 # EC2에서 애플리케이션 상태 확인
-curl http://localhost:8080/swagger-ui.html
+curl http://localhost:8080/api/health
 
 # 데이터베이스 연결 확인
-curl http://localhost:8080/swagger-ui.html
+curl http://localhost:8080/api/health
 # HTTP 200 응답 확인
 ```
 
@@ -399,8 +404,8 @@ curl http://localhost:8080/swagger-ui.html
 
 ```bash
 # ALB DNS 이름으로 접속
-curl https://<ALB_DNS>/swagger-ui.html
-# 또는 Route53 도메인: https://api.yourdomain.com/swagger-ui.html
+curl https://<ALB_DNS>/api/health
+# 또는 Route53 도메인: https://api.yourdomain.com/api/health
 ```
 
 ### 3단계: 프론트엔드 배포 확인
@@ -459,7 +464,7 @@ aws cloudwatch put-metric-alarm \
 ### MariaDB 연결 실패
 ```bash
 # EC2에서 RDS 연결 테스트
-mysql -h <RDS_ENDPOINT> -u boot_user -p treader_db -e "SELECT 1;"
+mysql -h <RDS_ENDPOINT> -u treader_user -p treader_db -e "SELECT 1;"
 
 # 보안 그룹 확인
 aws ec2 describe-security-groups --group-ids sg-xxxxxxxxx --query 'SecurityGroups[0].IpPermissions'
