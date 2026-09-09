@@ -25,7 +25,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+	// 3.x 가 Spring Framework 7 대응 라인이다. 2.x 는 제거된 ControllerAdviceBean(Object)
+	// 생성자를 호출해 /v3/api-docs 가 NoSuchMethodError 로 죽는다.
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1'
 	// 인보이스 PDF — HTML 템플릿을 PDF 로 렌더한다. 출력물은 D8-01 대로 영문이라 한글 폰트가 필요 없다.
 	implementation 'com.openhtmltopdf:openhtmltopdf-pdfbox:1.0.10'
 	// Excel 대량등록·내보내기 (M5). xlsx 를 다루려면 ooxml 이 필요하다.
