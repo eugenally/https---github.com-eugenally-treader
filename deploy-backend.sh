@@ -13,8 +13,7 @@ NC='\033[0m' # No Color
 # 설정
 WAR_NAME="treader.war"
 BUILD_OUTPUT="build/libs/$WAR_NAME"
-S3_DEPLOY_BUCKET="treader-deploy-artifacts"
-AWS_REGION="us-east-1"
+AWS_REGION="ap-northeast-2"
 EC2_USER="ec2-user"
 EC2_REMOTE_DIR="/app/treader"
 SYSTEMD_SERVICE="treader"
@@ -64,38 +63,20 @@ fi
 
 echo -e "${GREEN}✓ Build successful: $BUILD_OUTPUT${NC}"
 
-# 2. S3에 업로드
-echo -e "${YELLOW}[2/5] Uploading WAR to S3...${NC}"
-aws s3 cp "$BUILD_OUTPUT" "s3://$S3_DEPLOY_BUCKET/$WAR_NAME" \
-    --region $AWS_REGION
+# 2. 직전 WAR 백업 — 새 파일을 올리기 전에 해야 롤백본이 남는다
+echo -e "${YELLOW}[2/5] Backing up current WAR on EC2...${NC}"
+ssh -i "$PEM_KEY" "$EC2_USER@$EC2_IP" \
+    "cd $EC2_REMOTE_DIR && [ -f $WAR_NAME ] && cp $WAR_NAME $WAR_NAME.backup.\$(date +%s) && echo 'backup created' || echo 'no previous WAR'"
 
-echo -e "${GREEN}✓ S3 upload successful${NC}"
+# 3. 전송 후 재기동
+echo -e "${YELLOW}[3/5] Uploading WAR and restarting...${NC}"
+scp -i "$PEM_KEY" "$BUILD_OUTPUT" "$EC2_USER@$EC2_IP:$EC2_REMOTE_DIR/$WAR_NAME"
 
-# 3. EC2에 다운로드 및 배포
-echo -e "${YELLOW}[3/5] Connecting to EC2 and deploying...${NC}"
-
-ssh -i "$PEM_KEY" "$EC2_USER@$EC2_IP" << 'EOF'
+ssh -i "$PEM_KEY" "$EC2_USER@$EC2_IP" << EOF
 set -e
-
-echo "Downloading WAR file from S3..."
-cd /app/treader
-aws s3 cp s3://treader-deploy-artifacts/treader.war . --region us-east-1
-
-echo "Backing up previous WAR..."
-if [ -f treader.war ]; then
-    cp treader.war treader.war.backup.$(date +%s)
-    echo "Backup created"
-fi
-
-echo "Restarting service..."
-sudo systemctl restart treader
-
-echo "Waiting for service to start..."
+sudo systemctl restart $SYSTEMD_SERVICE
 sleep 5
-
-echo "Checking service status..."
-sudo systemctl status treader
-
+sudo systemctl status $SYSTEMD_SERVICE --no-pager
 EOF
 
 echo -e "${GREEN}✓ EC2 deployment successful${NC}"
