@@ -39,4 +39,10 @@ public class ExchangeRate {
     /** 매매기준율 */
     @Column(name = "DEAL_BAS_R", nullable = false, precision = 15, scale = 4)
     private BigDecimal dealBasR;
+
+    public ExchangeRate(LocalDate baseDate, String curUnit, BigDecimal dealBasR) {
+        this.baseDate = baseDate;
+        this.curUnit = curUnit;
+        this.dealBasR = dealBasR;
+    }
 }

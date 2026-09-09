@@ -25,6 +25,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import ForumIcon from '@mui/icons-material/Forum';
 import FolderIcon from '@mui/icons-material/Folder';
 import { useAuth } from '../auth/AuthContext';
+import NotificationPanel from './NotificationPanel';
 
 const DRAWER_WIDTH = 250;
 
@@ -63,6 +64,7 @@ export default function Layout({ children }) {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             🚢 TreaderAPP - 수출오더관리시스템
           </Typography>
+          {member && <NotificationPanel />}
           {member ? (
             <>
               <Button

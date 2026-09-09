@@ -21,6 +21,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -35,7 +37,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import BusinessIcon from '@mui/icons-material/Business';
 import DescriptionIcon from '@mui/icons-material/Description';
 import Layout from '../components/Layout';
-import { invoiceApi, orderApi, productApi, quotationApi, toMessage } from '../api/client';
+import client, { toMessage } from '../api/client';
 
 const COLORS = ['#1976d2', '#e64980', '#2f9e44', '#f08c00', '#7048e8', '#0c8599'];
 
@@ -73,13 +75,9 @@ export default function DashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [orders, quotations, invoices, products] = await Promise.all([
-          orderApi.list(),
-          quotationApi.list(),
-          invoiceApi.list(),
-          productApi.list(),
-        ]);
-        setData({ orders, quotations, invoices, products });
+        // M6 통계 API (PIVOT + 윈도우 함수)
+        const summaryResponse = await client.get('/statistics/dashboard-summary');
+        setData(summaryResponse.data);
       } catch (e) {
         setToast({ message: toMessage(e), severity: 'error' });
       } finally {
@@ -90,45 +88,53 @@ export default function DashboardPage() {
 
   const stats = useMemo(() => {
     if (!data) return null;
-    const { orders, quotations, invoices, products } = data;
 
-    const totalOrderAmount = orders.reduce((sum, o) => sum + Number(o.totalAmount || 0), 0);
-    const receivable = invoices.reduce((sum, i) => sum + Number(i.balance || 0), 0);
-    const totalStock = products.reduce((sum, p) => sum + Number(p.onHandQty || 0), 0);
+    // M6 통계 API 응답 구조
+    const {
+      totalSales,
+      activeCustomers,
+      activeProducts,
+      totalSalesOrders,
+      outstandingReceivables,
+      monthlySales,
+      topCustomers,
+      topProducts,
+      agingBuckets,
+    } = data;
 
-    // 거래처별 수주액
-    const byCustomer = {};
-    orders.forEach((o) => {
-      byCustomer[o.customerName] = (byCustomer[o.customerName] || 0) + Number(o.totalAmount || 0);
-    });
-    const customerSales = Object.entries(byCustomer)
-      .map(([name, sales]) => ({ name, sales }))
-      .sort((a, b) => b.sales - a.sales);
+    // 월별 매출 데이터 변환
+    const salesTrend = (monthlySales || []).map(sale => ({
+      month: new Date(sale.month).toLocaleDateString('ko-KR', { year: '2-digit', month: '2-digit' }),
+      sales: Math.round(Number(sale.krwSales || 0) / 1000000), // 백만원 단위
+      growth: Number(sale.yoyGrowthRate || 0),
+    }));
 
-    // 수주 상태 분포
-    const byStatus = {};
-    orders.forEach((o) => {
-      byStatus[o.status] = (byStatus[o.status] || 0) + 1;
-    });
-    const statusDist = Object.entries(byStatus).map(([name, value]) => ({ name, value }));
+    // 거래처별 매출 (TOP 5)
+    const customerSales = (topCustomers || []).map(c => ({
+      name: c.customerName,
+      sales: Math.round(Number(c.krwSales || 0) / 1000000),
+    }));
 
-    // 재고 상위
-    const topStock = [...products]
-      .sort((a, b) => Number(b.onHandQty || 0) - Number(a.onHandQty || 0))
-      .slice(0, 6)
-      .map((p) => ({ name: p.productCode, qty: Number(p.onHandQty || 0) }));
+    // 미수금 Aging (원형 그래프)
+    const agingChart = (agingBuckets || []).map(b => ({
+      name: b.agingBucket,
+      value: Number(b.invoiceCount || 0),
+    }));
 
     return {
-      totalOrderAmount,
-      receivable,
-      totalStock,
-      orderCount: orders.length,
-      quotationCount: quotations.length,
-      invoiceCount: invoices.length,
+      totalSales: Number(totalSales || 0),
+      receivable: Number(outstandingReceivables || 0),
+      activeCustomers: Number(activeCustomers || 0),
+      activeProducts: Number(activeProducts || 0),
+      orderCount: Number(totalSalesOrders || 0),
       topCustomer: customerSales[0],
       customerSales,
-      statusDist,
-      topStock,
+      agingChart,
+      topProducts: (topProducts || []).slice(0, 6).map(p => ({
+        name: p.productCode,
+        qty: Math.round(Number(p.totalQty || 0)),
+      })),
+      salesTrend,
     };
   }, [data]);
 
@@ -161,24 +167,27 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <SummaryCard
               icon={AttachMoneyIcon}
-              title="총 수주액 (USD 기준)"
-              value={`$${money(stats.totalOrderAmount)}`}
+              title="총 매출 (KRW)"
+              value={`₩${money(stats.totalSales / 1000000, 1)}`}
+              unit="M"
               color="#1976d2"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <SummaryCard
               icon={TrendingUpIcon}
-              title="미수금 잔액"
-              value={`$${money(stats.receivable)}`}
+              title="미수금 잔액 (KRW)"
+              value={`₩${money(stats.receivable / 1000000, 1)}`}
+              unit="M"
               color="#e64980"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <SummaryCard
               icon={Inventory2Icon}
-              title="총 재고 수량"
-              value={money(stats.totalStock, 0)}
+              title="활성 제품"
+              value={stats.activeProducts}
+              unit=" 종"
               color="#2f9e44"
             />
           </Grid>
@@ -187,24 +196,24 @@ export default function DashboardPage() {
               icon={BusinessIcon}
               title="TOP 거래처"
               value={stats.topCustomer?.name ?? '-'}
-              unit={stats.topCustomer ? ` $${money(stats.topCustomer.sales, 0)}` : ''}
+              unit={stats.topCustomer ? ` ₩${money(stats.topCustomer.sales, 0)}M` : ''}
               color="#f08c00"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <SummaryCard
               icon={DescriptionIcon}
-              title="견적 / 수주"
-              value={`${stats.quotationCount} / ${stats.orderCount}`}
-              unit=" 건"
+              title="활성 거래처"
+              value={stats.activeCustomers}
+              unit=" 개"
               color="#7048e8"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <SummaryCard
               icon={ShoppingCartIcon}
-              title="발행 인보이스"
-              value={stats.invoiceCount}
+              title="총 수주"
+              value={stats.orderCount}
               unit=" 건"
               color="#0c8599"
             />
@@ -215,19 +224,27 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 7 }}>
             <Card sx={{ padding: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold', marginBottom: 2 }}>
-                🏢 거래처별 수주액
+                📈 월별 매출 추이 (KRW)
               </Typography>
-              {stats.customerSales.length === 0 ? (
-                <Alert severity="info">수주 데이터가 없습니다.</Alert>
+              {stats.salesTrend.length === 0 ? (
+                <Alert severity="info">매출 데이터가 없습니다.</Alert>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={stats.customerSales} layout="vertical" margin={{ left: 20, right: 30 }}>
+                  <LineChart data={stats.salesTrend}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => `$${money(v)}`} />
-                    <Bar dataKey="sales" fill="#1976d2" name="수주액" />
-                  </BarChart>
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(v) => `₩${money(v)}M`} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="sales"
+                      stroke="#1976d2"
+                      name="매출액"
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               )}
             </Card>
@@ -236,16 +253,16 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 5 }}>
             <Card sx={{ padding: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold', marginBottom: 2 }}>
-                📦 수주 상태 분포
+                💰 미수금 Aging
               </Typography>
-              {stats.statusDist.length === 0 ? (
-                <Alert severity="info">수주 데이터가 없습니다.</Alert>
+              {stats.agingChart.length === 0 ? (
+                <Alert severity="info">미수금 데이터가 없습니다.</Alert>
               ) : (
                 <>
                   <ResponsiveContainer width="100%" height={240}>
                     <PieChart>
                       <Pie
-                        data={stats.statusDist}
+                        data={stats.agingChart}
                         cx="50%"
                         cy="50%"
                         innerRadius={55}
@@ -253,7 +270,7 @@ export default function DashboardPage() {
                         paddingAngle={4}
                         dataKey="value"
                       >
-                        {stats.statusDist.map((entry, index) => (
+                        {stats.agingChart.map((entry, index) => (
                           <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -261,7 +278,7 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                   <Box sx={{ marginTop: 1 }}>
-                    {stats.statusDist.map((item, idx) => (
+                    {stats.agingChart.map((item, idx) => (
                       <Box
                         key={item.name}
                         sx={{ display: 'flex', alignItems: 'center', gap: 1, marginBottom: 0.5 }}
@@ -290,16 +307,16 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ padding: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold', marginBottom: 2 }}>
-                📊 제품별 재고 (상위 6)
+                🏭 제품별 매출 TOP 6
               </Typography>
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={stats.topStock}>
+                <BarChart data={stats.topProducts}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
                   <YAxis />
                   <Tooltip formatter={(v) => money(v, 0)} />
                   <Legend />
-                  <Bar dataKey="qty" fill="#2f9e44" name="재고 수량" />
+                  <Bar dataKey="qty" fill="#2f9e44" name="판매 수량" />
                 </BarChart>
               </ResponsiveContainer>
             </Card>
@@ -308,35 +325,31 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 6 }}>
             <Card sx={{ padding: 3 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold', marginBottom: 2 }}>
-                📋 최근 수주
+                🏆 거래처별 매출 TOP 5
               </Typography>
               <TableContainer>
                 <Table size="small">
                   <TableHead sx={{ backgroundColor: '#f0f0f0' }}>
                     <TableRow>
-                      <TableCell>수주번호</TableCell>
+                      <TableCell>순위</TableCell>
                       <TableCell>거래처</TableCell>
-                      <TableCell align="right">금액</TableCell>
-                      <TableCell>상태</TableCell>
+                      <TableCell align="right">매출 (KRW)</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {data.orders.length === 0 && (
+                    {stats.customerSales.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} align="center" sx={{ color: '#999', padding: 3 }}>
-                          수주가 없습니다.
+                        <TableCell colSpan={3} align="center" sx={{ color: '#999', padding: 3 }}>
+                          매출 데이터가 없습니다.
                         </TableCell>
                       </TableRow>
                     )}
-                    {data.orders.slice(0, 6).map((o) => (
-                      <TableRow key={o.id}>
-                        <TableCell>{o.orderNo}</TableCell>
-                        <TableCell>{o.customerName}</TableCell>
+                    {stats.customerSales.map((c, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell sx={{ fontWeight: 'bold' }}>{idx + 1}</TableCell>
+                        <TableCell>{c.name}</TableCell>
                         <TableCell align="right">
-                          {o.currency} {money(o.totalAmount)}
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={o.status} size="small" />
+                          ₩{money(c.sales, 0)}M
                         </TableCell>
                       </TableRow>
                     ))}
