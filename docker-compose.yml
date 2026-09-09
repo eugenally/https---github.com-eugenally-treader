@@ -1,9 +1,20 @@
 services:
   # MariaDB Database
+  #
+  # 기본 기동에서 제외한다(profiles). 이 개발 환경은 Windows 네이티브 MariaDB 를 쓰는데,
+  # 그쪽이 3306 의 IPv4 를 이미 점유하고 있어 이 컨테이너가 함께 뜨면 IPv6 에만 붙는다.
+  # 그러면 HeidiSQL·앱(127.0.0.1)은 네이티브 서버를, 컨테이너는 제 데이터를 보게 되어
+  # "테이블이 안 보인다"로 나타난다. 컨테이너 DB 가 필요할 때만 명시적으로 띄운다:
+  #   docker compose --profile mariadb up -d
+  # 이때는 네이티브 MariaDB 서비스를 먼저 멈추거나 MARIADB_PORT 를 3307 로 바꿀 것.
   mariadb:
     image: mariadb:10.6
     container_name: treader-mariadb
     restart: unless-stopped
+    # app 프로파일은 이 컨테이너를 DB 로 쓰므로 그때도 함께 떠야 한다.
+    profiles:
+      - mariadb
+      - app
     ports:
       - "${MARIADB_PORT:-3306}:3306"
     environment:

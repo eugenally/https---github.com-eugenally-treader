@@ -31,10 +31,10 @@ treader/
 │   └── global/            # 전역 설정·예외처리
 ├── frontend-react/        # React SPA (Vite)
 ├── src/main/resources/db/
-│   ├── 01-init-schema.sql # 20개 테이블 DDL
-│   ├── 02-sample-data.sql # 테스트 데이터
+│   ├── oracle_ddl.sql     # 25개 테이블 DDL (MariaDB. 파일명은 마이그레이션 이전 이름)
+│   ├── sample-data.sql    # 테스트 데이터
 │   └── 03-statistics-queries.sql # 통계 쿼리 집합
-├── docker-compose.yml     # Oracle + MailHog
+├── docker-compose.yml     # MailHog (MariaDB 는 --profile mariadb)
 └── DEVELOPMENT_GUIDE.md   # 상세 개발 노트
 ```
 
@@ -45,33 +45,53 @@ treader/
 ### 1️⃣ 사전 요구사항
 
 - **Java 21** (Spring Boot 4.1.1 필요)
-- **Docker & Docker Compose** (Oracle 21c + MailHog)
+- **MariaDB 10.6+** (로컬 설치 또는 docker compose 프로파일)
+- **Docker & Docker Compose** (MailHog)
 - **Node.js 18+** (React 프론트엔드)
 
-### 2️⃣ 데이터베이스 시작
+### 2️⃣ 데이터베이스 준비
+
+기본값은 **로컬에 설치된 MariaDB** 를 쓴다. 스키마와 샘플 데이터를 넣는다.
 
 ```bash
-docker-compose up -d
-# MariaDB: localhost:3306 (user: boot_user / password: 1234)
-# MailHog: localhost:8025 (웹UI)
+mysql -h 127.0.0.1 -u root -p -e "CREATE DATABASE IF NOT EXISTS treader_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER IF NOT EXISTS 'treader_user'@'%' IDENTIFIED BY '1234'; GRANT ALL PRIVILEGES ON treader_db.* TO 'treader_user'@'%';"
+mysql -h 127.0.0.1 -u treader_user -p1234 treader_db < src/main/resources/db/oracle_ddl.sql
+mysql -h 127.0.0.1 -u treader_user -p1234 treader_db < src/main/resources/db/sample-data.sql
 ```
+
+MailHog(메일 확인용)를 띄운다.
+
+```bash
+docker compose up -d
+# MailHog: localhost:8025 (웹UI) / SMTP 1025
+```
+
+> DB 도 컨테이너로 쓰려면 `docker compose --profile mariadb up -d`.
+> 단, 로컬 MariaDB 가 3306 을 쓰고 있으면 먼저 멈추거나 `.env` 의 `MARIADB_PORT` 를 바꿀 것.
+> 둘이 같이 뜨면 한쪽은 IPv4, 다른 쪽은 IPv6 에 붙어 "테이블이 안 보이는" 상태가 된다.
 
 ### 3️⃣ 백엔드 실행
 
 ```bash
-cd treader
 ./gradlew bootRun
-# 서버: http://localhost:8080
+# 서버: http://localhost:8080  (React 화면도 여기서 함께 서빙된다)
 # Swagger UI: http://localhost:8080/swagger-ui.html
 ```
 
-### 4️⃣ 프론트엔드 실행
+### 4️⃣ 프론트엔드 (개발 모드)
 
 ```bash
 cd frontend-react
-npm install
+npm ci
 npm run dev
-# http://localhost:5173
+# http://localhost:5173  (/api 는 8080 으로 프록시된다)
+```
+
+프로덕션 빌드는 `src/main/resources/static` 으로 나가 WAR 에 포함된다.
+
+```bash
+cd frontend-react && npm run build && cd ..
+./gradlew bootWar
 ```
 
 ### 5️⃣ 테스트 로그인
@@ -79,7 +99,8 @@ npm run dev
 | 역할 | ID | 비밀번호 |
 |------|----|----|
 | 관리자 | admin | password |
-| 영업 | sales1 | password |
+
+샘플 데이터에는 `admin` 하나만 들어 있다. 영업 계정은 회원가입으로 만든다.
 
 ---
 
@@ -204,7 +225,8 @@ npm run dev
 출하 시 재고 차감이 원자적이어야 하므로 `SELECT FOR UPDATE` 사용.
 
 ### 왜 Native SQL인가?
-Oracle 윈도우함수(LAG, RANK, RATIO_TO_REPORT)와 PIVOT은 JPA로 표현 불가.
+윈도우함수(LAG, RANK)와 피벗 집계는 JPA 로 표현할 수 없다.
+MariaDB 전환 시 Oracle 의 RATIO_TO_REPORT·PIVOT 은 윈도우 SUM 과 조건부 집계로 바꿨다.
 
 ### 왜 배치 기반 알림인가?
 RealTime 알림(WebSocket)의 복잡성을 피하고, 비즈니스 의도(정각 체크)를 명확히.
