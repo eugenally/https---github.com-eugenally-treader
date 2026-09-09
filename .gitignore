@@ -45,3 +45,8 @@ out/
 # JVM crash logs
 hs_err_pid*.log
 replay_pid*.log
+
+### 자격증명 — 저장소에 절대 들어가면 안 된다 ###
+*.pem
+*.ppk
+env.conf
