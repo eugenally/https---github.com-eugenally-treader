@@ -15,15 +15,15 @@ public interface StatisticsRepository {
      */
     @Query(value = """
             SELECT
-                TRUNC(sh.ETD, 'MM') AS month,
+                DATE_FORMAT(sh.ETD, '%Y-%m-01') AS month,
                 SUM(i.AMOUNT * i.EXCHANGE_RATE) AS krw_sales,
-                LAG(SUM(i.AMOUNT * i.EXCHANGE_RATE)) OVER (ORDER BY TRUNC(sh.ETD, 'MM')) AS prev_month_sales,
+                LAG(SUM(i.AMOUNT * i.EXCHANGE_RATE)) OVER (ORDER BY DATE_FORMAT(sh.ETD, '%Y-%m-01')) AS prev_month_sales,
                 ROUND(((SUM(i.AMOUNT * i.EXCHANGE_RATE) /
-                        LAG(SUM(i.AMOUNT * i.EXCHANGE_RATE)) OVER (ORDER BY TRUNC(sh.ETD, 'MM'))) - 1) * 100, 2) AS yoy_growth
+                        LAG(SUM(i.AMOUNT * i.EXCHANGE_RATE)) OVER (ORDER BY DATE_FORMAT(sh.ETD, '%Y-%m-01'))) - 1) * 100, 2) AS yoy_growth
             FROM INVOICE i
             JOIN SHIPMENT sh ON i.SHIPMENT_ID = sh.SHIPMENT_ID
             WHERE i.INVOICE_TYPE = 'CI' AND i.STATUS = 'PAID'
-            GROUP BY TRUNC(sh.ETD, 'MM')
+            GROUP BY DATE_FORMAT(sh.ETD, '%Y-%m-01')
             ORDER BY month DESC
             """, nativeQuery = true)
     List<Object[]> findMonthlySales();
@@ -44,7 +44,7 @@ public interface StatisticsRepository {
             WHERE i.INVOICE_TYPE = 'CI' AND i.STATUS = 'PAID'
             GROUP BY c.CUSTOMER_ID, c.NAME_EN, c.CUSTOMER_CODE
             ORDER BY rank
-            FETCH FIRST 5 ROWS ONLY
+            LIMIT 5
             """, nativeQuery = true)
     List<Object[]> findTopCustomers();
 
@@ -67,7 +67,7 @@ public interface StatisticsRepository {
             WHERE i.INVOICE_TYPE = 'CI' AND i.STATUS = 'PAID'
             GROUP BY p.PRODUCT_ID, p.NAME_EN, p.PRODUCT_CODE
             ORDER BY rank
-            FETCH FIRST 5 ROWS ONLY
+            LIMIT 5
             """, nativeQuery = true)
     List<Object[]> findTopProducts();
 
@@ -78,10 +78,10 @@ public interface StatisticsRepository {
             SELECT
                 CASE
                     WHEN i.STATUS = 'PAID' THEN '완납'
-                    WHEN TRUNC(SYSDATE) <= i.DUE_DATE THEN '미만기'
-                    WHEN TRUNC(SYSDATE) - i.DUE_DATE BETWEEN 1 AND 30 THEN '30일 이상'
-                    WHEN TRUNC(SYSDATE) - i.DUE_DATE BETWEEN 31 AND 60 THEN '60일 이상'
-                    WHEN TRUNC(SYSDATE) - i.DUE_DATE BETWEEN 61 AND 90 THEN '90일 이상'
+                    WHEN CURDATE() <= i.DUE_DATE THEN '미만기'
+                    WHEN DATEDIFF(CURDATE(), i.DUE_DATE) BETWEEN -30 AND -1 THEN '30일 이상'
+                    WHEN DATEDIFF(CURDATE(), i.DUE_DATE) BETWEEN -60 AND -31 THEN '60일 이상'
+                    WHEN DATEDIFF(CURDATE(), i.DUE_DATE) BETWEEN -90 AND -61 THEN '90일 이상'
                     ELSE '90일 초과'
                 END AS aging_bucket,
                 COUNT(*) AS invoice_count,
@@ -94,10 +94,10 @@ public interface StatisticsRepository {
             GROUP BY
                 CASE
                     WHEN i.STATUS = 'PAID' THEN '완납'
-                    WHEN TRUNC(SYSDATE) <= i.DUE_DATE THEN '미만기'
-                    WHEN TRUNC(SYSDATE) - i.DUE_DATE BETWEEN 1 AND 30 THEN '30일 이상'
-                    WHEN TRUNC(SYSDATE) - i.DUE_DATE BETWEEN 31 AND 60 THEN '60일 이상'
-                    WHEN TRUNC(SYSDATE) - i.DUE_DATE BETWEEN 61 AND 90 THEN '90일 이상'
+                    WHEN CURDATE() <= i.DUE_DATE THEN '미만기'
+                    WHEN DATEDIFF(CURDATE(), i.DUE_DATE) BETWEEN -30 AND -1 THEN '30일 이상'
+                    WHEN DATEDIFF(CURDATE(), i.DUE_DATE) BETWEEN -60 AND -31 THEN '60일 이상'
+                    WHEN DATEDIFF(CURDATE(), i.DUE_DATE) BETWEEN -90 AND -61 THEN '90일 이상'
                     ELSE '90일 초과'
                 END
             ORDER BY
