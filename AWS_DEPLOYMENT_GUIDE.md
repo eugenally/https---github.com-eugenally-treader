@@ -297,7 +297,7 @@ aws s3 cp s3://treader-deploy-artifacts/treader.war .
 
 #### `/app/treader/env.conf` 작성
 ```bash
-export SPRING_DATASOURCE_URL=jdbc:mysql://<RDS_ENDPOINT>:3306/treader_db?useUnicode=true&characterEncoding=utf8mb4&useSSL=true&serverTimezone=Asia/Seoul
+export SPRING_DATASOURCE_URL=jdbc:mariadb://<RDS_ENDPOINT>:3306/treader_db?sslMode=trust
 export SPRING_DATASOURCE_USERNAME=boot_user
 export SPRING_DATASOURCE_PASSWORD=$(aws secretsmanager get-secret-value --secret-id treader/mariadb/password --query SecretString --output text)
 export SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.mariadb.jdbc.Driver
