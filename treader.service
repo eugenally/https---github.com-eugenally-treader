@@ -1,0 +1,55 @@
+[Unit]
+Description=TreaderAPP Spring Boot Application
+After=network.target syslog.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/app/treader
+EnvironmentFile=/app/treader/env.conf
+
+# Spring Boot 애플리케이션 실행
+ExecStart=/usr/bin/java \
+  -Dserver.port=8080 \
+  -Dspring.datasource.url=${SPRING_DATASOURCE_URL} \
+  -Dspring.datasource.username=${SPRING_DATASOURCE_USERNAME} \
+  -Dspring.datasource.password=${SPRING_DATASOURCE_PASSWORD} \
+  -Dspring.datasource.driver-class-name=${SPRING_DATASOURCE_DRIVER_CLASS_NAME} \
+  -Dspring.jpa.database-platform=${SPRING_JPA_DATABASE_PLATFORM} \
+  -Dspring.jpa.hibernate.ddl-auto=${SPRING_JPA_HIBERNATE_DDL_AUTO} \
+  -Dspring.jpa.show-sql=${SPRING_JPA_SHOW_SQL} \
+  -Dapp.jwt.secret=${APP_JWT_SECRET} \
+  -Dapp.frontend.base-url=${APP_FRONTEND_BASE_URL} \
+  -Dspring.mail.host=${SPRING_MAIL_HOST} \
+  -Dspring.mail.port=${SPRING_MAIL_PORT} \
+  -Dspring.mail.username=${SPRING_MAIL_USERNAME} \
+  -Dspring.mail.password=${SPRING_MAIL_PASSWORD} \
+  -Dapp.mail.from=${APP_MAIL_FROM} \
+  -Dapp.upload.dir=${APP_UPLOAD_DIR} \
+  -Dlogging.file.name=/app/logs/treader.log \
+  -Dlogging.file.max-size=10MB \
+  -Dlogging.file.max-history=30 \
+  -jar treader.war
+
+# 재시작 정책
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# 로깅
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=treader
+
+# 타임아웃
+TimeoutStartSec=30
+TimeoutStopSec=10
+
+# 보안
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
