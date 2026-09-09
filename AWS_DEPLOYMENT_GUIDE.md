@@ -148,16 +148,19 @@ aws ec2 revoke-security-group-ingress --group-id $RDS_SG \
 
 ---
 
-## 3. 비밀값 저장 (Secrets Manager)
+## 3. JWT 서명키 만들기
+
+Secrets Manager 는 쓰지 않는다. 비밀값은 EC2 안 `env.conf` 에만 두고 파일 권한으로 막는다.
+그만큼 IAM 역할·인스턴스 프로파일도 필요 없어서, 이 배포에 필요한 권한은 EC2 와 RDS 뿐이다.
+
+서명키를 로컬에서 만들어 둔다. 최소 32바이트여야 하고, 저장소의 개발용 기본값을 그대로
+쓰면 누구나 토큰을 위조할 수 있다.
 
 ```bash
-aws secretsmanager create-secret --name treader/mariadb/password \
-  --secret-string '<DB_비밀번호>'
-
-# JWT 서명키는 최소 32바이트. 로컬 개발용 기본값을 절대 그대로 쓰지 않는다.
-aws secretsmanager create-secret --name treader/jwt-secret \
-  --secret-string "$(openssl rand -base64 48)"
+openssl rand -base64 48
 ```
+
+출력값을 5단계 `env.conf` 의 `APP_JWT_SECRET` 에 넣는다.
 
 ---
 
@@ -177,34 +180,8 @@ aws ec2 create-key-pair --key-name treader-prod-key \
 chmod 600 treader-prod-key.pem
 ```
 
-IAM 역할 — EC2 가 Secrets Manager 를 읽어야 한다.
-
-```bash
-cat > /tmp/trust.json <<'JSON'
-{"Version":"2012-10-17","Statement":[{"Effect":"Allow",
- "Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}
-JSON
-
-aws iam create-role --role-name treader-ec2-role \
-  --assume-role-policy-document file:///tmp/trust.json
-
-cat > /tmp/policy.json <<'JSON'
-{"Version":"2012-10-17","Statement":[
- {"Effect":"Allow","Action":"secretsmanager:GetSecretValue",
-  "Resource":"arn:aws:secretsmanager:ap-northeast-2:*:secret:treader/*"},
- {"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
-  "Resource":"*"}]}
-JSON
-
-aws iam put-role-policy --role-name treader-ec2-role \
-  --policy-name treader-ec2-policy --policy-document file:///tmp/policy.json
-
-aws iam create-instance-profile --instance-profile-name treader-ec2-profile
-aws iam add-role-to-instance-profile --instance-profile-name treader-ec2-profile \
-  --role-name treader-ec2-role
-```
-
-인스턴스 기동 (Amazon Linux 2023, Java 21 자동 설치):
+인스턴스 기동 (Amazon Linux 2023, Java 21 자동 설치). IAM 역할은 붙이지 않는다 —
+EC2 가 AWS API 를 호출할 일이 없다.
 
 ```bash
 AMI=$(aws ssm get-parameter \
@@ -220,7 +197,6 @@ SH
 
 INSTANCE_ID=$(aws ec2 run-instances --image-id $AMI --instance-type t3.micro \
   --key-name treader-prod-key --security-group-ids $APP_SG \
-  --iam-instance-profile Name=treader-ec2-profile \
   --user-data file:///tmp/userdata.sh \
   --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=30,VolumeType=gp3}' \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=treader-app-prod}]' \
@@ -257,25 +233,28 @@ EC2 에 접속해 환경 파일을 만든다.
 ssh -i treader-prod-key.pem ec2-user@$EC2_IP
 ```
 
-`/app/treader/env.conf`:
+`/app/treader/env.conf` 를 만든다. `<...>` 자리는 실제 값으로 채운다.
 
 ```bash
+cat > /app/treader/env.conf <<'CONF'
 export SPRING_DATASOURCE_URL='jdbc:mariadb://<RDS_HOST>:3306/treader_db'
 export SPRING_DATASOURCE_USERNAME=treader_user
-export SPRING_DATASOURCE_PASSWORD=$(aws secretsmanager get-secret-value \
-  --secret-id treader/mariadb/password --query SecretString --output text --region ap-northeast-2)
+export SPRING_DATASOURCE_PASSWORD='<DB_비밀번호>'
 export SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.mariadb.jdbc.Driver
 export SPRING_JPA_HIBERNATE_DDL_AUTO=validate
 export SPRING_JPA_SHOW_SQL=false
 
-export APP_JWT_SECRET=$(aws secretsmanager get-secret-value \
-  --secret-id treader/jwt-secret --query SecretString --output text --region ap-northeast-2)
+export APP_JWT_SECRET='<3단계에서 만든 값>'
 export APP_FRONTEND_BASE_URL=http://<EC2_IP>:8080
 export APP_UPLOAD_DIR=/app/uploads
 
 # API 문서는 닫는다. 켜 두면 전체 엔드포인트 구조가 인증 없이 노출된다.
 export SPRINGDOC_API_DOCS_ENABLED=false
 export SPRINGDOC_SWAGGER_UI_ENABLED=false
+CONF
+
+# 비밀번호와 서명키가 평문으로 들어 있다. 소유자만 읽게 막는다.
+chmod 600 /app/treader/env.conf
 ```
 
 systemd 유닛을 올린다. 저장소 루트의 `treader.service` 를 로컬에서 전송한 뒤 설치한다.
