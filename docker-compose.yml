@@ -1,28 +1,32 @@
 services:
-  # Oracle Database 21c Express Edition
-  oracle:
-    image: gvenzl/oracle-xe:21-slim
-    container_name: treader-oracle
+  # MariaDB Database
+  mariadb:
+    image: mariadb:10.6
+    container_name: treader-mariadb
     restart: unless-stopped
     ports:
-      # 호스트의 1521 포트 충돌 방지를 위해 1523 포트로 매핑
-      - "${ORACLE_PORT:-1523}:1521"
+      - "${MARIADB_PORT:-3306}:3306"
     environment:
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-1234}
-      APP_USER: ${ORACLE_APP_USER:-boot_user}
-      APP_USER_PASSWORD: ${ORACLE_APP_USER_PASSWORD:-1234}
-      ORACLE_DATABASE: ${ORACLE_DATABASE:-XEPDB1}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-1234}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-treader_db}
+      MYSQL_USER: ${MYSQL_USER:-boot_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1234}
+      TZ: Asia/Seoul
     volumes:
-      - oracle_data:/opt/oracle/oradata
-      - ./docker/oracle-init:/container-entrypoint-initdb.d:ro
+      - mariadb_data:/var/lib/mysql
+      - ./docker/mariadb-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "healthcheck.sh"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-      start_period: 40s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - treader-network
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-time-zone='+09:00'
 
   # MailHog - 로컬 개발용 가상 SMTP 서버 및 웹 UI
   mailhog:
@@ -47,15 +51,19 @@ services:
     ports:
       - "${APP_PORT:-8080}:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
-      SPRING_DATASOURCE_USERNAME: ${ORACLE_APP_USER:-boot_user}
-      SPRING_DATASOURCE_PASSWORD: ${ORACLE_APP_USER_PASSWORD:-1234}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mariadb:3306/treader_db?useUnicode=true&characterEncoding=utf8mb4&useSSL=false&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-boot_user}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-1234}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.mariadb.jdbc.Driver
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MariaDB103Dialect
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_JPA_SHOW_SQL: "false"
       SPRING_MAIL_HOST: mailhog
       SPRING_MAIL_PORT: 1025
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_JPA_SHOW_SQL: "true"
+      APP_JWT_SECRET: ${APP_JWT_SECRET:treader-local-dev-secret-key-change-me-in-production-2026}
+      APP_FRONTEND_BASE_URL: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
     depends_on:
-      oracle:
+      mariadb:
         condition: service_healthy
       mailhog:
         condition: service_started
@@ -63,7 +71,7 @@ services:
       - treader-network
 
 volumes:
-  oracle_data:
+  mariadb_data:
     driver: local
 
 networks:

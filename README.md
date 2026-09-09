@@ -6,7 +6,7 @@
 
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-brightgreen)
 ![React](https://img.shields.io/badge/React-18+-blue)
-![Oracle](https://img.shields.io/badge/Oracle-21c-red)
+![MariaDB](https://img.shields.io/badge/MariaDB-10.6-blue)
 ![Java](https://img.shields.io/badge/Java-21-orange)
 
 ---
@@ -52,7 +52,7 @@ treader/
 
 ```bash
 docker-compose up -d
-# Oracle: localhost:1523 (user: BOOT_USER / password)
+# MariaDB: localhost:3306 (user: boot_user / password: 1234)
 # MailHog: localhost:8025 (웹UI)
 ```
 
@@ -242,5 +242,5 @@ Private Portfolio Project
 
 ---
 
-**마지막 업데이트**: 2026-09-09 | **상태**: ✅ M0~M8 완료
+**마지막 업데이트**: 2026-09-09 | **상태**: ✅ M0~M8 완료 | **DB**: MariaDB로 전환
 
