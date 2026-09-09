@@ -9,7 +9,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-1234}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-treader_db}
-      MYSQL_USER: ${MYSQL_USER:-boot_user}
+      MYSQL_USER: ${MYSQL_USER:-treader_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-1234}
       TZ: Asia/Seoul
     volumes:
