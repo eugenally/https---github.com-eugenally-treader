@@ -8,7 +8,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -27,8 +26,7 @@ import java.math.BigDecimal;
 public class ShipmentItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seqShipmentItem")
-    @SequenceGenerator(name = "seqShipmentItem", sequenceName = "SEQ_SHIPMENT_ITEM", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ITEM_ID")
     private Long id;
 

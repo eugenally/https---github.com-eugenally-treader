@@ -10,7 +10,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -30,8 +29,7 @@ import java.math.RoundingMode;
 public class SalesOrderItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seqSoItem")
-    @SequenceGenerator(name = "seqSoItem", sequenceName = "SEQ_SO_ITEM", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "ITEM_ID")
     private Long id;
 

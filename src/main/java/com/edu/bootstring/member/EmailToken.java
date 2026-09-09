@@ -9,7 +9,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -35,8 +34,7 @@ public class EmailToken {
     public static final long SIGNUP_VALID_HOURS = 24;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seqEmailToken")
-    @SequenceGenerator(name = "seqEmailToken", sequenceName = "SEQ_EMAIL_TOKEN", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "TOKEN_ID")
     private Long id;
 

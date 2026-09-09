@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,8 +23,7 @@ import java.time.LocalDate;
 public class ExchangeRate {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seqExchangeRate")
-    @SequenceGenerator(name = "seqExchangeRate", sequenceName = "SEQ_EXCHANGE_RATE", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "RATE_ID")
     private Long id;
 

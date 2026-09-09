@@ -5,7 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -25,8 +24,7 @@ import java.time.LocalDateTime;
 public class InventoryTxn {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seqInventoryTxn")
-    @SequenceGenerator(name = "seqInventoryTxn", sequenceName = "SEQ_INVENTORY_TXN", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "TXN_ID")
     private Long id;
 

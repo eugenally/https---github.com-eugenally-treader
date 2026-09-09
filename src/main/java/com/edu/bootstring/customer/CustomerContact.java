@@ -10,7 +10,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -30,8 +29,7 @@ import lombok.NoArgsConstructor;
 public class CustomerContact {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seqCustContact")
-    @SequenceGenerator(name = "seqCustContact", sequenceName = "SEQ_CUST_CONTACT", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "CONTACT_ID")
     private Long id;
 
