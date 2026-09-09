@@ -45,8 +45,16 @@ echo "Target EC2: $EC2_IP"
 echo "PEM Key: $PEM_KEY"
 echo ""
 
-# 1. Gradle 빌드
-echo -e "${YELLOW}[1/5] Building WAR file...${NC}"
+# 1. 프론트엔드 → src/main/resources/static, 그다음 WAR
+# Vite outDir 이 WAR 리소스 경로라 순서를 지켜야 최신 화면이 담긴다.
+echo -e "${YELLOW}[1/5] Building frontend and WAR...${NC}"
+(cd frontend-react && npm ci && npm run build)
+
+if [ ! -f "src/main/resources/static/index.html" ]; then
+    echo -e "${RED}Error: frontend build produced no static/index.html${NC}"
+    exit 1
+fi
+
 ./gradlew clean bootWar -x test
 
 if [ ! -f "$BUILD_OUTPUT" ]; then

@@ -165,28 +165,26 @@ aws rds create-db-instance \
 3. DNS 또는 이메일 검증 완료
 4. ALB 리스너 HTTPS (443)에 인증서 연결
 
-### 4단계: S3 + CloudFront (프론트엔드)
+### 4단계: 배포 아티팩트용 S3 버킷
 
-#### S3 버킷 생성
-```bash
-aws s3 mb s3://treader-frontend-prod --region us-east-1
-aws s3api put-bucket-versioning --bucket treader-frontend-prod --versioning-configuration Status=Enabled
-```
+WAR 를 EC2 로 전달하는 용도다. 프론트엔드는 WAR 안에 들어가므로 별도 버킷이 필요 없다.
 
-#### CloudFront 배포 생성
-1. CloudFront 콘솔 → Create Distribution
-2. 원본: S3 버킷 (`treader-frontend-prod.s3.us-east-1.amazonaws.com`)
-3. **캐시 설정**:
-   - Default TTL: 0 (HTML)
-   - Maximum TTL: 31536000 (1년, JS/CSS)
-4. HTTPS만 허용
-5. Gzip 압축 활성화
-6. 도메인 연결 (Route53 또는 CNAME)
-
-#### S3 업로드 S3 버킷 (아티팩트 저장)
 ```bash
 aws s3 mb s3://treader-deploy-artifacts --region us-east-1
 ```
+
+#### CloudFront (선택)
+
+정적 자산 캐싱·전역 응답속도가 필요하면 **S3 가 아니라 ALB 를 오리진으로** 배포를 만든다.
+프론트엔드가 WAR 안에 있으므로 이 편이 코드 변경 없이 CDN 을 얹는 방법이다.
+
+1. CloudFront 콘솔 → Create Distribution
+2. 원본: ALB DNS 이름 (Origin Protocol: HTTPS only)
+3. 캐시 동작:
+   - `/api/*` → 캐시 비활성 (Managed-CachingDisabled), 모든 헤더·쿠키 전달
+   - `/assets/*` → 장기 캐시 (Vite 가 파일명에 해시를 붙인다)
+   - 기본(`/`, `index.html`) → 캐시 비활성 또는 짧은 TTL
+4. HTTPS 만 허용, 압축 활성화
 
 ---
 
@@ -366,24 +364,30 @@ sudo journalctl -u treader -f
 
 ## 프론트엔드 배포
 
-### 1단계: React 빌드
+**별도 배포가 없다.** Vite 의 `outDir` 이 `src/main/resources/static` 이라 React 빌드 결과가
+WAR 안으로 들어가고, Spring Boot 가 API 와 SPA 를 같은 오리진에서 서빙한다.
+axios 도 `baseURL: '/api'` 상대경로를 쓰므로 CORS 설정이나 API 주소 주입이 필요 없다.
+
+따라서 순서만 지키면 된다 — **프론트엔드를 먼저 빌드하고 WAR 를 만든다.**
 
 ```bash
 cd frontend-react
-npm install
-npm run build
+npm ci          # npm install 로 부분 설치가 남으면 빌드가 깨진다
+npm run build   # → ../src/main/resources/static
 
-# 결과: dist/
+cd ..
+./gradlew clean bootWar   # → build/libs/treader.war (static 포함)
 ```
 
-### 2단계: S3에 배포
+포함 여부 확인:
 
 ```bash
-aws s3 sync dist/ s3://treader-frontend-prod/ --delete --region us-east-1
-
-# CloudFront 캐시 무효화
-aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "/*"
+unzip -l build/libs/treader.war | grep 'static/index.html'
 ```
+
+> S3 · CloudFront 로 프론트엔드를 분리하려면 `vite.config.js` 의 `outDir`,
+> `src/api/client.js` 의 `baseURL`, 그리고 백엔드 CORS 를 함께 바꿔야 한다.
+> CDN 만 필요하다면 S3 없이 **ALB 앞에 CloudFront 를 두는 편**이 코드 변경이 없다.
 
 ---
 
