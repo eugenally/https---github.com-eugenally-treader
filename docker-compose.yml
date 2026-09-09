@@ -60,8 +60,8 @@ services:
       SPRING_JPA_SHOW_SQL: "false"
       SPRING_MAIL_HOST: mailhog
       SPRING_MAIL_PORT: 1025
-      APP_JWT_SECRET: ${APP_JWT_SECRET:treader-local-dev-secret-key-change-me-in-production-2026}
-      APP_FRONTEND_BASE_URL: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+      APP_JWT_SECRET: treader-local-dev-secret-key-change-me-in-production-2026
+      APP_FRONTEND_BASE_URL: http://localhost:5173
     depends_on:
       mariadb:
         condition: service_healthy
