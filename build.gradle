@@ -57,3 +57,6 @@ tasks.named('test') {
 bootWar {
 	archiveFileName = 'treader.war'
 }
+
+bootWar.enabled=false
+war.enabled=true
