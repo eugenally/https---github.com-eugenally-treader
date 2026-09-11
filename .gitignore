@@ -50,3 +50,5 @@ replay_pid*.log
 *.pem
 *.ppk
 env.conf
+# 메일 계정 (mail.env.example 참고)
+mail.env
